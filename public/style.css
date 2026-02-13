@@ -85,6 +85,22 @@ header h1 {
   gap: 4px;
 }
 
+.toggle-all-btn {
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  background: #0f3460;
+  color: #ccc;
+  border: 1px solid #1a4a7a;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-all-btn:hover {
+  background: #1a4a7a;
+}
+
 .layer-item {
   display: flex;
   align-items: center;

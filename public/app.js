@@ -225,6 +225,23 @@ function normalizePolygons(key, data) {
 
 // --- Build layer toggles ---
 function buildLayerToggles() {
+  // Toggle all button
+  const toggleAllBtn = document.createElement('button')
+  toggleAllBtn.className = 'toggle-all-btn'
+  toggleAllBtn.textContent = 'Hide All'
+  let allVisible = true
+  toggleAllBtn.addEventListener('click', () => {
+    allVisible = !allVisible
+    toggleAllBtn.textContent = allVisible ? 'Hide All' : 'Show All'
+    for (const key of Object.keys(LAYER_CONFIG)) {
+      konvaLayers[key].visible(allVisible)
+    }
+    layersPanel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = allVisible
+    })
+  })
+  layersPanel.appendChild(toggleAllBtn)
+
   for (const [key, config] of Object.entries(LAYER_CONFIG)) {
     const label = document.createElement('label')
     label.className = 'layer-item'
