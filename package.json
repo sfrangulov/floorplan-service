@@ -19,6 +19,7 @@
     "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^9.0.0",
     "@google/genai": "^1.41.0",
+    "dotenv": "^17.3.1",
     "fastify": "^5.7.4"
   }
 }
