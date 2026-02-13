@@ -1,19 +1,24 @@
 // --- Layer config ---
+// Layers are rendered in this order (first = bottom, last = top)
 const LAYER_CONFIG = {
-  apartments:     { color: '#264653', opacity: 0.15, label: 'Apartments' },
-  wall:           { color: '#555555', opacity: 0.3,  label: 'Walls' },
-  door:           { color: '#FF6B35', opacity: 0.4,  label: 'Doors' },
-  window:         { color: '#00B4D8', opacity: 0.4,  label: 'Windows' },
-  balcony_window: { color: '#48CAE4', opacity: 0.3,  label: 'Balcony Windows' },
-  balcony:        { color: '#90E0EF', opacity: 0.2,  label: 'Balconies' },
-  bedroom:        { color: '#7B2D8E', opacity: 0.25, label: 'Bedrooms' },
-  living_room:    { color: '#2D6A4F', opacity: 0.25, label: 'Living Rooms' },
-  other_room:     { color: '#E9C46A', opacity: 0.25, label: 'Other Rooms' },
-  kitchen_table:  { color: '#E76F51', opacity: 0.3,  label: 'Kitchen Tables' },
-  kitchen_zone:   { color: '#F4A261', opacity: 0.2,  label: 'Kitchen Zones' },
-  sink:           { color: '#219EBC', opacity: 0.5,  label: 'Sinks' },
-  cooker:         { color: '#FB8500', opacity: 0.5,  label: 'Cookers' },
+  apartments:     { color: '#264653', opacity: 0.08, strokeOpacity: 0.6, strokeWidth: 2, dash: [8, 4], label: 'Apartments' },
+  balcony:        { color: '#90E0EF', opacity: 0.12, strokeOpacity: 0.5, strokeWidth: 1, label: 'Balconies' },
+  bedroom:        { color: '#7B2D8E', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Bedrooms' },
+  living_room:    { color: '#2D6A4F', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Living Rooms' },
+  other_room:     { color: '#E9C46A', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Other Rooms' },
+  kitchen_zone:   { color: '#F4A261', opacity: 0.12, strokeOpacity: 0.5, strokeWidth: 1, label: 'Kitchen Zones' },
+  wall:           { color: '#555555', opacity: 0.25, strokeOpacity: 0.6, strokeWidth: 1, label: 'Walls' },
+  door:           { color: '#FF6B35', opacity: 0.35, strokeOpacity: 0.8, strokeWidth: 1, label: 'Doors' },
+  window:         { color: '#00B4D8', opacity: 0.35, strokeOpacity: 0.8, strokeWidth: 1, label: 'Windows' },
+  balcony_window: { color: '#48CAE4', opacity: 0.25, strokeOpacity: 0.7, strokeWidth: 1, label: 'Balcony Windows' },
+  kitchen_table:  { color: '#E76F51', opacity: 0.3,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Kitchen Tables' },
+  sink:           { color: '#219EBC', opacity: 0.4,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Sinks' },
+  cooker:         { color: '#FB8500', opacity: 0.4,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Cookers' },
 }
+
+// Actual image dimensions (set after image loads)
+let actualImageWidth = 0
+let actualImageHeight = 0
 
 // --- DOM refs ---
 const fileInput = document.getElementById('file-input')
@@ -119,6 +124,9 @@ function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
+      actualImageWidth = img.width
+      actualImageHeight = img.height
+
       imageLayer.destroyChildren()
       const konvaImg = new Konva.Image({ image: img, x: 0, y: 0 })
       imageLayer.add(konvaImg)
@@ -141,6 +149,14 @@ function loadImage(url) {
   })
 }
 
+// --- Scale normalized (0-1000) coordinates to actual image pixels ---
+function scalePoint(point) {
+  return [
+    point[0] * actualImageWidth / 1000,
+    point[1] * actualImageHeight / 1000,
+  ]
+}
+
 // --- Render polygons ---
 function renderPolygons(data) {
   // Clear previous polygons
@@ -154,25 +170,35 @@ function renderPolygons(data) {
 
     const layer = konvaLayers[key]
     for (const polygon of polygons) {
-      const flatPoints = polygon.flat()
-      const line = new Konva.Line({
-        points: flatPoints,
+      // Scale from 0-1000 to actual image pixels
+      const scaledPoints = polygon.map(scalePoint).flat()
+
+      const lineConfig = {
+        points: scaledPoints,
         fill: config.color,
         stroke: config.color,
-        strokeWidth: 2,
+        strokeWidth: config.strokeWidth,
         closed: true,
         opacity: config.opacity,
-      })
+      }
+
+      if (config.dash) {
+        lineConfig.dash = config.dash
+      }
+
+      const line = new Konva.Line(lineConfig)
 
       // Hover effects
       line.on('mouseenter', () => {
-        line.opacity(Math.min(config.opacity + 0.3, 1))
+        line.opacity(Math.min(config.opacity + 0.2, 0.8))
+        line.strokeWidth(config.strokeWidth + 1)
         layer.batchDraw()
         hoverInfo.textContent = config.label
         stage.container().style.cursor = 'pointer'
       })
       line.on('mouseleave', () => {
         line.opacity(config.opacity)
+        line.strokeWidth(config.strokeWidth)
         layer.batchDraw()
         hoverInfo.textContent = ''
         stage.container().style.cursor = 'grab'
@@ -231,11 +257,11 @@ function updateInfo(data) {
   }
 
   const lines = []
-  if (data.width && data.height) {
-    lines.push('Size: ' + data.width + ' x ' + data.height + ' px')
+  if (actualImageWidth && actualImageHeight) {
+    lines.push('Image: ' + actualImageWidth + ' x ' + actualImageHeight + ' px')
   }
-  if (data.pixels_per_meter) {
-    lines.push('Scale: ' + data.pixels_per_meter + ' px/m')
+  if (data.image_width_meters) {
+    lines.push('Width: ~' + data.image_width_meters.toFixed(1) + ' m')
   }
   for (const [key, config] of Object.entries(LAYER_CONFIG)) {
     const polygons = normalizePolygons(key, data)
