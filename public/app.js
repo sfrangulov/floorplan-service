@@ -1,20 +1,22 @@
 // --- Layer config ---
 // Layers are rendered in this order (first = bottom, last = top)
 const LAYER_CONFIG = {
-  apartments:     { color: '#264653', opacity: 0.08, strokeOpacity: 0.6, strokeWidth: 2, dash: [8, 4], label: 'Apartments' },
-  balcony:        { color: '#90E0EF', opacity: 0.12, strokeOpacity: 0.5, strokeWidth: 1, label: 'Balconies' },
-  bedroom:        { color: '#7B2D8E', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Bedrooms' },
-  living_room:    { color: '#2D6A4F', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Living Rooms' },
-  other_room:     { color: '#E9C46A', opacity: 0.15, strokeOpacity: 0.7, strokeWidth: 1, label: 'Other Rooms' },
-  kitchen_zone:   { color: '#F4A261', opacity: 0.12, strokeOpacity: 0.5, strokeWidth: 1, label: 'Kitchen Zones' },
-  wall:           { color: '#555555', opacity: 0.25, strokeOpacity: 0.6, strokeWidth: 1, label: 'Walls' },
-  door:           { color: '#FF6B35', opacity: 0.35, strokeOpacity: 0.8, strokeWidth: 1, label: 'Doors' },
-  window:         { color: '#00B4D8', opacity: 0.35, strokeOpacity: 0.8, strokeWidth: 1, label: 'Windows' },
-  balcony_window: { color: '#48CAE4', opacity: 0.25, strokeOpacity: 0.7, strokeWidth: 1, label: 'Balcony Windows' },
-  kitchen_table:  { color: '#E76F51', opacity: 0.3,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Kitchen Tables' },
-  sink:           { color: '#219EBC', opacity: 0.4,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Sinks' },
-  cooker:         { color: '#FB8500', opacity: 0.4,  strokeOpacity: 0.8, strokeWidth: 1, label: 'Cookers' },
+  apartments:     { color: '#264653', opacity: 0.2,  strokeWidth: 2, dash: [8, 4], label: 'Apartments' },
+  balcony:        { color: '#90E0EF', opacity: 0.3,  strokeWidth: 1, label: 'Balconies' },
+  bedroom:        { color: '#7B2D8E', opacity: 0.35, strokeWidth: 1, label: 'Bedrooms' },
+  living_room:    { color: '#2D6A4F', opacity: 0.35, strokeWidth: 1, label: 'Living Rooms' },
+  other_room:     { color: '#E9C46A', opacity: 0.35, strokeWidth: 1, label: 'Other Rooms' },
+  kitchen_zone:   { color: '#F4A261', opacity: 0.3,  strokeWidth: 1, label: 'Kitchen Zones' },
+  wall:           { color: '#888888', opacity: 0.5,  strokeWidth: 1, label: 'Walls' },
+  door:           { color: '#FF6B35', opacity: 0.5,  strokeWidth: 1, label: 'Doors' },
+  window:         { color: '#00B4D8', opacity: 0.5,  strokeWidth: 1, label: 'Windows' },
+  balcony_window: { color: '#48CAE4', opacity: 0.4,  strokeWidth: 1, label: 'Balcony Windows' },
+  kitchen_table:  { color: '#E76F51', opacity: 0.5,  strokeWidth: 1, label: 'Kitchen Tables' },
+  sink:           { color: '#219EBC', opacity: 0.6,  strokeWidth: 1, label: 'Sinks' },
+  cooker:         { color: '#FB8500', opacity: 0.6,  strokeWidth: 1, label: 'Cookers' },
 }
+
+const GAP = 40 // pixels gap between image and polygons
 
 // Actual image dimensions (set after image loads)
 let actualImageWidth = 0
@@ -40,6 +42,9 @@ const stage = new Konva.Stage({
 
 const imageLayer = new Konva.Layer()
 stage.add(imageLayer)
+
+const polygonBgLayer = new Konva.Layer()
+stage.add(polygonBgLayer)
 
 const konvaLayers = {}
 for (const key of Object.keys(LAYER_CONFIG)) {
@@ -108,6 +113,7 @@ async function handleFileUpload(e) {
     }
     const result = await response.json()
     renderPolygons(result)
+    fitSideBySide()
     updateInfo(result)
     statusText.textContent = 'Analysis complete'
   } catch (err) {
@@ -131,16 +137,8 @@ function loadImage(url) {
       const konvaImg = new Konva.Image({ image: img, x: 0, y: 0 })
       imageLayer.add(konvaImg)
 
-      // Fit to canvas
-      const padding = 0.9
-      const scaleX = (stage.width() * padding) / img.width
-      const scaleY = (stage.height() * padding) / img.height
-      const scale = Math.min(scaleX, scaleY)
-      stage.scale({ x: scale, y: scale })
-      stage.position({
-        x: (stage.width() - img.width * scale) / 2,
-        y: (stage.height() - img.height * scale) / 2,
-      })
+      // Fit image only (before analysis)
+      fitImageOnly()
       stage.batchDraw()
       resolve()
     }
@@ -149,20 +147,64 @@ function loadImage(url) {
   })
 }
 
-// --- Scale normalized (0-1000) coordinates to actual image pixels ---
+// --- Fit just the image to canvas ---
+function fitImageOnly() {
+  const padding = 0.9
+  const scaleX = (stage.width() * padding) / actualImageWidth
+  const scaleY = (stage.height() * padding) / actualImageHeight
+  const scale = Math.min(scaleX, scaleY)
+  stage.scale({ x: scale, y: scale })
+  stage.position({
+    x: (stage.width() - actualImageWidth * scale) / 2,
+    y: (stage.height() - actualImageHeight * scale) / 2,
+  })
+}
+
+// --- Fit side-by-side view (image + polygons) to canvas ---
+function fitSideBySide() {
+  const totalWidth = actualImageWidth * 2 + GAP
+  const totalHeight = actualImageHeight
+  const padding = 0.9
+  const scaleX = (stage.width() * padding) / totalWidth
+  const scaleY = (stage.height() * padding) / totalHeight
+  const scale = Math.min(scaleX, scaleY)
+  stage.scale({ x: scale, y: scale })
+  stage.position({
+    x: (stage.width() - totalWidth * scale) / 2,
+    y: (stage.height() - totalHeight * scale) / 2,
+  })
+  stage.batchDraw()
+}
+
+// --- Scale normalized (0-1000) coordinates to actual image pixels, offset to the right ---
 function scalePoint(point) {
+  const offsetX = actualImageWidth + GAP
   return [
-    point[0] * actualImageWidth / 1000,
+    point[0] * actualImageWidth / 1000 + offsetX,
     point[1] * actualImageHeight / 1000,
   ]
 }
 
 // --- Render polygons ---
 function renderPolygons(data) {
-  // Clear previous polygons
+  // Clear previous
+  polygonBgLayer.destroyChildren()
   for (const layer of Object.values(konvaLayers)) {
     layer.destroyChildren()
   }
+
+  // Draw dark background for polygon area
+  const offsetX = actualImageWidth + GAP
+  polygonBgLayer.add(new Konva.Rect({
+    x: offsetX,
+    y: 0,
+    width: actualImageWidth,
+    height: actualImageHeight,
+    fill: '#1a1a2e',
+    stroke: '#333',
+    strokeWidth: 1,
+  }))
+  polygonBgLayer.batchDraw()
 
   for (const [key, config] of Object.entries(LAYER_CONFIG)) {
     const polygons = normalizePolygons(key, data)
@@ -170,7 +212,7 @@ function renderPolygons(data) {
 
     const layer = konvaLayers[key]
     for (const polygon of polygons) {
-      // Scale from 0-1000 to actual image pixels
+      // Scale from 0-1000 to actual image pixels, offset to the right
       const scaledPoints = polygon.map(scalePoint).flat()
 
       const lineConfig = {
@@ -190,7 +232,7 @@ function renderPolygons(data) {
 
       // Hover effects
       line.on('mouseenter', () => {
-        line.opacity(Math.min(config.opacity + 0.2, 0.8))
+        line.opacity(Math.min(config.opacity + 0.25, 1))
         line.strokeWidth(config.strokeWidth + 1)
         layer.batchDraw()
         hoverInfo.textContent = config.label
