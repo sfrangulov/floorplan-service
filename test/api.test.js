@@ -46,5 +46,6 @@ describe('POST /analyze', () => {
     assert.equal(response.statusCode, 200)
     const body = JSON.parse(response.body)
     assert.equal(body.status, 'ok')
+    assert.equal(body.service, 'floorplan-service')
   })
 })
