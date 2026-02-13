@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url'
-import { resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import Fastify from 'fastify'
 import multipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
 import { analyzeFloorplan } from './src/gemini.js'
 
 const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -9,11 +10,19 @@ const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp']
 export async function buildApp(opts = {}) {
   const app = Fastify(opts)
 
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 },
   })
 
-  app.get('/', async (request, reply) => {
+  await app.register(fastifyStatic, {
+    root: join(__dirname, 'public'),
+    prefix: '/',
+  })
+
+  app.get('/api/health', async () => {
     return { status: 'ok', service: 'floorplan-service' }
   })
 

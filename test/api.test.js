@@ -38,10 +38,10 @@ describe('POST /analyze', () => {
     assert.equal(response.statusCode, 400)
   })
 
-  it('GET / returns status ok', async () => {
+  it('GET /api/health returns status ok', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/',
+      url: '/api/health',
     })
     assert.equal(response.statusCode, 200)
     const body = JSON.parse(response.body)
