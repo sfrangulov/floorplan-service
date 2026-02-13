@@ -1,2 +1,46 @@
 <!DOCTYPE html>
-<html><body><h1>Floorplan Viewer</h1></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Floorplan Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Floorplan Analyzer</h1>
+    </header>
+    <div class="main">
+      <aside class="sidebar">
+        <div>
+          <h3>Upload</h3>
+          <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
+          <button class="upload-btn" id="upload-btn">Upload Floor Plan</button>
+        </div>
+        <div>
+          <h3>Layers</h3>
+          <div id="layers-panel"></div>
+        </div>
+        <div>
+          <h3>Info</h3>
+          <div id="info-panel"></div>
+        </div>
+      </aside>
+      <div class="canvas-container">
+        <div id="konva-container"></div>
+        <div class="loading-overlay hidden" id="loading">
+          <div class="spinner"></div>
+          <p>Analyzing floor plan...</p>
+        </div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <span id="status-text">Ready</span>
+      <span id="hover-info"></span>
+    </div>
+  </div>
+  <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
