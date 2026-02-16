@@ -19,7 +19,7 @@ describe('E2E: POST /analyze with real image', () => {
     if (app) await app.close()
   })
 
-  it('analyzes U3laAgYJ.jpg and returns valid v3 structure with 5 elements', { timeout: 180_000 }, async () => {
+  it('analyzes U3laAgYJ.jpg and returns valid v3 structure with 5 elements', { timeout: 120_000 }, async () => {
     if (!process.env.GEMINI_API_KEY) return
 
     const imagePath = path.join(process.cwd(), 'test-data', 'U3laAgYJ.jpg')

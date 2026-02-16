@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { SYSTEM_PROMPT, RESPONSE_JSON_SCHEMA, CLEANING_PROMPT } from '../src/prompt.js'
+import { SYSTEM_PROMPT, RESPONSE_JSON_SCHEMA } from '../src/prompt.js'
 
 describe('prompt', () => {
   it('exports a non-empty system prompt string', () => {
@@ -11,6 +11,16 @@ describe('prompt', () => {
   it('uses normalized 0-1000 coordinate system', () => {
     assert.ok(SYSTEM_PROMPT.includes('0 to 1000'), 'prompt should mention 0-1000 range')
     assert.ok(SYSTEM_PROMPT.includes('NORMALIZED'), 'prompt should mention normalized coordinates')
+  })
+
+  it('includes step-by-step analysis instructions', () => {
+    assert.ok(SYSTEM_PROMPT.includes('STEP 1'), 'prompt should have step-by-step guidance')
+    assert.ok(SYSTEM_PROMPT.includes('STEP 2'), 'prompt should have wall tracing step')
+  })
+
+  it('includes quality reference example', () => {
+    assert.ok(SYSTEM_PROMPT.includes('QUALITY REFERENCE'), 'prompt should have quality example')
+    assert.ok(SYSTEM_PROMPT.includes('222.5,699.5'), 'prompt should have coordinate example')
   })
 
   it('exports a valid JSON schema with 5 active element fields', () => {
@@ -46,10 +56,5 @@ describe('prompt', () => {
     assert.ok(required.includes('balcony_window'))
     assert.ok(!required.includes('apartments'))
     assert.ok(!required.includes('bedroom'))
-  })
-
-  it('exports a cleaning prompt string', () => {
-    assert.equal(typeof CLEANING_PROMPT, 'string')
-    assert.ok(CLEANING_PROMPT.length > 50)
   })
 })

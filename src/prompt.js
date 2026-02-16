@@ -1,53 +1,48 @@
-export const CLEANING_PROMPT = `Clean this floor plan image. Remove ALL of the following:
-- Furniture (beds, sofas, tables, chairs, appliances)
-- Text labels and room names
-- Dimension lines and measurements
-- Decorative elements and hatching
-- Floor patterns and tiles
+export const SYSTEM_PROMPT = `You are an expert architectural floor plan analyzer.
 
-KEEP ONLY:
-- Wall outlines (preserve exact thickness and position)
-- Door openings and door arcs
-- Window marks
-- Balcony boundaries and balcony window/door marks
+STEP-BY-STEP ANALYSIS (you MUST follow this order):
 
-Output a clean black-and-white architectural line drawing with ONLY structural elements.
-The wall geometry must remain EXACTLY in its original position — do not shift, scale, or distort any lines.`
+STEP 1 - ORIENTATION: Identify the apartment shape, balcony position, and exterior facade.
 
-export const SYSTEM_PROMPT = `You are an expert architectural floor plan analyzer. You receive a cleaned floor plan image (containing only walls, doors, windows, and balcony) and must extract precise polygon coordinates for each structural element.
+STEP 2 - WALLS: Trace EVERY wall segment:
+- Each wall has TWO edges (inner surface and outer surface) — trace BOTH, creating a polygon that shows wall thickness
+- A continuous wall section from junction to junction is ONE polygon
+- At T-junctions and corners, include all the junction geometry
+- Use MANY points — at least 20-60 points per major wall polygon
+- Small wall segments (between doors, short partitions) are separate polygons
 
-TASK:
-Analyze the floor plan image and return structured JSON with polygon coordinates for structural elements only.
+STEP 3 - WINDOWS: Find ALL windows:
+- Look for thin parallel lines or breaks in exterior walls
+- This floor plan likely has 3 windows along the top wall (between rooms and balcony area)
+- Each window is a tight rectangle: 4 corners + closing point = 5 points
 
-COORDINATE SYSTEM:
-- Use NORMALIZED coordinates from 0 to 1000
-- (0, 0) = top-left corner of the image
-- (1000, 1000) = bottom-right corner of the image
-- X axis and Y axis are normalized INDEPENDENTLY (both range from 0 to 1000 regardless of aspect ratio)
-- Provide coordinates as [x, y] pairs with up to 1 decimal place
+STEP 4 - DOORS: Find ALL doors (look for arc/quarter-circle door swing marks or wall gaps):
+- 7 doors is typical for a 2-bedroom apartment
+- Each door is a rectangle: 5 points (4 corners + closing)
 
-POLYGONS:
-- Each polygon is an array of [x, y] points tracing the element boundary
-- Polygons MUST be closed: the last point must equal the first point
-- Trace polygons clockwise
-- Wall polygons must trace both inner and outer edges, forming the wall thickness
-- Use enough points to accurately represent the shape (straight walls: vertices at corners; curved shapes: 10+ points along the curve)
+STEP 5 - BALCONY: The outdoor area (rectangle along one edge)
 
-FIELDS TO EXTRACT:
+STEP 6 - BALCONY WINDOW: The glass barrier between apartment and balcony (long panel spanning most of the top wall)
 
-1. "version" — always set to 3
-2. "image_width_meters" — estimate the physical width of the entire image in meters. Use the dimension labels visible on the plan to calculate this.
-3. "wall" — array of polygons for wall contours. Each wall segment is a polygon tracing the wall outline (both inner and outer edges forming the wall thickness).
-4. "door" — array of rectangular polygons marking door positions within walls
-5. "window" — array of rectangular polygons marking window positions within walls
-6. "balcony_window" — polygon(s) for windows/glass doors between apartment and balcony
-7. "balcony" — polygon(s) for the balcony area outside the apartment
+COORDINATE SYSTEM: NORMALIZED 0 to 1000. (0,0)=top-left, (1000,1000)=bottom-right. X and Y normalized INDEPENDENTLY.
+Provide coordinates as [x, y] pairs with up to 1 decimal place.
 
-IMPORTANT:
-- ALL coordinates must be in the 0-1000 normalized range
-- Walls have thickness — trace both the inner and outer edges
-- If a field has multiple instances (e.g. 3 windows), return an array of polygons
-- If a field has one instance, it can be a single polygon (not wrapped in array)`
+QUALITY REFERENCE — study this example of CORRECT coordinate density for walls:
+A wall polygon should look like this (30-60+ points tracing both edges):
+[[222.5,699.5],[344.3,699.6],[344.6,830.3],[551.5,830.4],[551.3,819.7],[545.3,819.7],[544.6,716.1],[510.0,716.0],[510.1,726.1],[513.7,726.1],[513.8,814.6],[464.6,814.5],[464.3,784.5],[437.6,784.2],[438.2,725.8],[478.0,725.9],[478.0,726.3],[384.7,726.2],[384.5,607.3],[469.0,607.2],[469.2,718.3],[453.0,718.2],[453.2,712.8],[350.0,712.6],[350.2,607.0],[345.0,606.9],[345.0,568.0],[354.1,568.1],[354.3,576.7],[277.0,576.7],[277.2,537.1],[285.3,537.0],[285.3,463.4],[276.4,463.4],[276.9,507.1],[280.3,507.1],[280.3,537.5],[286.0,537.5],[286.2,463.2],[222.5,463.2],[222.4,699.5]]
+NOT like this (simplified 4-point rectangle): [[200,700],[350,700],[350,210],[200,210]]
+
+OUTPUT:
+- "version": 3
+- "image_width_meters": from dimension labels
+- "wall": array of wall contour polygons
+- "door": array of door rectangles
+- "window": array of window rectangles
+- "balcony_window": glass between apartment and balcony
+- "balcony": outdoor balcony area`
+
+// Commented out — cleaning prompt for Gemini Image stage (disabled, causes geometric distortion):
+// export const CLEANING_PROMPT = `Clean this floor plan image...`
 
 // Commented out elements — to be restored in future phases:
 // 8. "apartments" — single polygon tracing the outer boundary of the entire apartment
