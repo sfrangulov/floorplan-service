@@ -1,19 +1,20 @@
 // --- Layer config ---
 // Layers are rendered in this order (first = bottom, last = top)
 const LAYER_CONFIG = {
-  apartments:     { color: '#264653', opacity: 0.2,  strokeWidth: 2, dash: [8, 4], label: 'Apartments' },
   balcony:        { color: '#90E0EF', opacity: 0.3,  strokeWidth: 1, label: 'Balconies' },
-  bedroom:        { color: '#7B2D8E', opacity: 0.35, strokeWidth: 1, label: 'Bedrooms' },
-  living_room:    { color: '#2D6A4F', opacity: 0.35, strokeWidth: 1, label: 'Living Rooms' },
-  other_room:     { color: '#E9C46A', opacity: 0.35, strokeWidth: 1, label: 'Other Rooms' },
-  kitchen_zone:   { color: '#F4A261', opacity: 0.3,  strokeWidth: 1, label: 'Kitchen Zones' },
   wall:           { color: '#888888', opacity: 0.5,  strokeWidth: 1, label: 'Walls' },
   door:           { color: '#FF6B35', opacity: 0.5,  strokeWidth: 1, label: 'Doors' },
   window:         { color: '#00B4D8', opacity: 0.5,  strokeWidth: 1, label: 'Windows' },
   balcony_window: { color: '#48CAE4', opacity: 0.4,  strokeWidth: 1, label: 'Balcony Windows' },
-  kitchen_table:  { color: '#E76F51', opacity: 0.5,  strokeWidth: 1, label: 'Kitchen Tables' },
-  sink:           { color: '#219EBC', opacity: 0.6,  strokeWidth: 1, label: 'Sinks' },
-  cooker:         { color: '#FB8500', opacity: 0.6,  strokeWidth: 1, label: 'Cookers' },
+  // Commented out — future phases:
+  // apartments:     { color: '#264653', opacity: 0.2,  strokeWidth: 2, dash: [8, 4], label: 'Apartments' },
+  // bedroom:        { color: '#7B2D8E', opacity: 0.35, strokeWidth: 1, label: 'Bedrooms' },
+  // living_room:    { color: '#2D6A4F', opacity: 0.35, strokeWidth: 1, label: 'Living Rooms' },
+  // other_room:     { color: '#E9C46A', opacity: 0.35, strokeWidth: 1, label: 'Other Rooms' },
+  // kitchen_zone:   { color: '#F4A261', opacity: 0.3,  strokeWidth: 1, label: 'Kitchen Zones' },
+  // kitchen_table:  { color: '#E76F51', opacity: 0.5,  strokeWidth: 1, label: 'Kitchen Tables' },
+  // sink:           { color: '#219EBC', opacity: 0.6,  strokeWidth: 1, label: 'Sinks' },
+  // cooker:         { color: '#FB8500', opacity: 0.6,  strokeWidth: 1, label: 'Cookers' },
 }
 
 const GAP = 40 // pixels gap between image and polygons
