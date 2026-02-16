@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { SYSTEM_PROMPT, RESPONSE_JSON_SCHEMA } from '../src/prompt.js'
+import { SYSTEM_PROMPT, RESPONSE_JSON_SCHEMA, CLEANING_PROMPT } from '../src/prompt.js'
 
 describe('prompt', () => {
   it('exports a non-empty system prompt string', () => {
@@ -13,28 +13,43 @@ describe('prompt', () => {
     assert.ok(SYSTEM_PROMPT.includes('NORMALIZED'), 'prompt should mention normalized coordinates')
   })
 
-  it('exports a valid JSON schema object with required fields', () => {
+  it('exports a valid JSON schema with 5 active element fields', () => {
     assert.equal(RESPONSE_JSON_SCHEMA.type, 'object')
     const props = Object.keys(RESPONSE_JSON_SCHEMA.properties)
-    const allFields = [
+    const activeFields = [
       'version', 'image_width_meters',
-      'apartments', 'wall', 'door', 'window',
-      'balcony_window', 'balcony', 'bedroom', 'living_room',
-      'other_room', 'kitchen_table', 'kitchen_zone', 'sink', 'cooker'
+      'wall', 'door', 'window',
+      'balcony_window', 'balcony'
     ]
-    for (const key of allFields) {
+    for (const key of activeFields) {
       assert.ok(props.includes(key), `missing property: ${key}`)
     }
   })
 
-  it('has kitchen_zone as optional (not in required)', () => {
-    assert.ok(!RESPONSE_JSON_SCHEMA.required.includes('kitchen_zone'))
-    assert.ok(RESPONSE_JSON_SCHEMA.required.includes('apartments'))
+  it('does not include commented-out elements in schema', () => {
+    const props = Object.keys(RESPONSE_JSON_SCHEMA.properties)
+    const removedFields = [
+      'apartments', 'bedroom', 'living_room', 'other_room',
+      'kitchen_table', 'kitchen_zone', 'sink', 'cooker'
+    ]
+    for (const key of removedFields) {
+      assert.ok(!props.includes(key), `should not have property: ${key}`)
+    }
   })
 
-  it('does not require pixel-based width/height fields', () => {
-    assert.ok(!RESPONSE_JSON_SCHEMA.required.includes('width'))
-    assert.ok(!RESPONSE_JSON_SCHEMA.required.includes('height'))
-    assert.ok(!RESPONSE_JSON_SCHEMA.required.includes('pixels_per_meter'))
+  it('requires only active fields', () => {
+    const required = RESPONSE_JSON_SCHEMA.required
+    assert.ok(required.includes('wall'))
+    assert.ok(required.includes('door'))
+    assert.ok(required.includes('window'))
+    assert.ok(required.includes('balcony'))
+    assert.ok(required.includes('balcony_window'))
+    assert.ok(!required.includes('apartments'))
+    assert.ok(!required.includes('bedroom'))
+  })
+
+  it('exports a cleaning prompt string', () => {
+    assert.equal(typeof CLEANING_PROMPT, 'string')
+    assert.ok(CLEANING_PROMPT.length > 50)
   })
 })
