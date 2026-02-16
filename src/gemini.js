@@ -15,7 +15,7 @@ export async function analyzeFloorplan(imageBuffer, mimeType) {
   const ai = new GoogleGenAI({ apiKey })
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: [
       { inlineData: { data: imageBuffer.toString('base64'), mimeType } },
       SYSTEM_PROMPT,
