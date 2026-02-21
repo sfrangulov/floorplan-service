@@ -1,5 +1,29 @@
 import Replicate from 'replicate'
 
+const SEGMENTATION_LOCAL_URL = process.env.SEGMENTATION_LOCAL_URL || 'http://localhost:5555/predict'
+
+/**
+ * Analyze a floor plan image using the local segmentation server.
+ *
+ * @param {Buffer} imageBuffer - raw image bytes
+ * @returns {Promise<object>} parsed floor plan JSON with polygons
+ */
+export async function analyzeFloorplanSegmentationLocal(imageBuffer) {
+  const response = await fetch(SEGMENTATION_LOCAL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: imageBuffer,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Segmentation server error: ${response.status}`)
+  }
+
+  const result = await response.json()
+  delete result._inference_time_ms
+  return result
+}
+
 /**
  * Analyze a floor plan image using the segmentation model on Replicate.
  *

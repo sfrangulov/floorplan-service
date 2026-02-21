@@ -13,6 +13,7 @@ const approaches = {
   a5: () => import('./a5-pixel-coords.js'),
   a6: () => import('./a6-gemini-pro.js'),
   a7: () => import('./a7-vectorize.js'),
+  a8: () => import('./a8-grounded-sam.js'),
 }
 
 const selected = process.argv.slice(2).filter(a => approaches[a])

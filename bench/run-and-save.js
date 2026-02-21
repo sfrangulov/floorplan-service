@@ -10,7 +10,7 @@ if (!key) { console.error('Usage: node bench/run-and-save.js <approach>'); proce
 
 const mod = await import(`./${key.replace('a', 'a')}-${({
   a1: 'baseline', a2: 'gemini-svg', a3: 'gemini-bbox-refine',
-  a4: 'sharp-preprocess', a5: 'pixel-coords', a6: 'gemini-pro', a7: 'vectorize',
+  a4: 'sharp-preprocess', a5: 'pixel-coords', a6: 'gemini-pro', a7: 'vectorize', a8: 'grounded-sam',
 })[key]}.js`)
 
 const data = await mod.default()
