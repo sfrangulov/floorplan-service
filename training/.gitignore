@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pth
+*.pt
+checkpoints/
+wandb/
+data/cubicasa5k/
+data/synthetic/
+outputs/
+*.egg-info/
+.venv/
