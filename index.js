@@ -5,6 +5,7 @@ import Fastify from 'fastify'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import { analyzeFloorplan } from './src/gemini.js'
+import { analyzeFloorplanSegmentation } from './src/segmentation.js'
 
 const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp']
 
@@ -51,10 +52,16 @@ export async function buildApp(opts = {}) {
     }
 
     try {
-      const result = await analyzeFloorplan(buffer, file.mimetype)
+      const backend = process.env.ANALYSIS_BACKEND || 'gemini'
+      let result
+      if (backend === 'segmentation') {
+        result = await analyzeFloorplanSegmentation(buffer, file.mimetype)
+      } else {
+        result = await analyzeFloorplan(buffer, file.mimetype)
+      }
       return result
     } catch (err) {
-      request.log.error({ err }, 'Gemini analysis failed')
+      request.log.error({ err }, 'Floor plan analysis failed')
       return reply.code(502).send({ error: 'Floor plan analysis failed' })
     }
   })
