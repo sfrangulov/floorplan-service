@@ -156,10 +156,9 @@ class Predictor(BasePredictor):
         self.model = SegformerForSemanticSegmentation.from_pretrained(
             "./model",
             num_labels=NUM_CLASSES,
-            ignore_mismatched_sizes=True,
         )
         self.model.to(self.device)
-        self.model.train(False)
+        self.model.eval()
 
     def predict(
         self,
@@ -180,7 +179,7 @@ class Predictor(BasePredictor):
         scale = INPUT_SIZE / max(orig_w, orig_h)
         new_w = int(orig_w * scale)
         new_h = int(orig_h * scale)
-        pil_resized = pil_image.resize((new_w, new_h), Image.BILINEAR)
+        pil_resized = pil_image.resize((new_w, new_h), Image.LANCZOS)
 
         # Create white canvas and paste resized image (centered)
         canvas = Image.new("RGB", (INPUT_SIZE, INPUT_SIZE), (255, 255, 255))
@@ -224,7 +223,7 @@ class Predictor(BasePredictor):
             "version": 3,
             "image_width_meters": 0,
             "_inference_time_ms": inference_ms,
-            **polygons,
+            "elements": polygons,
         }
 
         return json.dumps(result)

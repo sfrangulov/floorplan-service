@@ -6,6 +6,7 @@ checkpoints/
 wandb/
 data/cubicasa5k/
 data/synthetic/
+data/prepared/
 outputs/
 *.egg-info/
 .venv/

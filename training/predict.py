@@ -255,15 +255,26 @@ def process_batch(
         output_path = os.path.join(output_dir, base_name + ".json")
 
         print(f"Processing: {fname}")
-        result = analyze_floorplan(model, image_path, device)
+
+        tensor, meta = preprocess_image(image_path)
+        mask = predict(model, tensor, device)
+
+        polygons = mask_to_polygons(
+            mask,
+            original_size=meta["original_size"],
+            padding=meta["padding"],
+        )
+        result = {
+            "version": 3,
+            "image_width_meters": 0,
+            "elements": polygons,
+        }
 
         with open(output_path, "w") as f:
             json.dump(result, f, indent=2)
         print(f"  -> {output_path}")
 
         if save_mask:
-            tensor, meta = preprocess_image(image_path)
-            mask = predict(model, tensor, device)
             mask_path = os.path.join(output_dir, base_name + "_mask.png")
             save_mask_png(mask, mask_path)
             print(f"  -> {mask_path}")
