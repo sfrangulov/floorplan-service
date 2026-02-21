@@ -255,7 +255,8 @@ function renderPolygons(data) {
 
 // --- Normalize polygons ---
 function normalizePolygons(key, data) {
-  const raw = data[key]
+  // Support both flat format (data.wall) and nested (data.elements.wall)
+  const raw = data[key] || (data.elements && data.elements[key])
   if (!raw || !Array.isArray(raw) || raw.length === 0) return null
 
   // Single polygon: [[x,y],[x,y],...] — first element is [number, number]
