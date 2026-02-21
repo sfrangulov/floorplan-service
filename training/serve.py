@@ -4,6 +4,7 @@ import io
 import json
 import time
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -75,13 +76,29 @@ def run_inference(model, image_bytes, device):
 
     elapsed = round((time.time() - t0) * 1000, 1)
 
+    # Compute apartments boundary from non-background mask
+    non_bg = ((mask > 0) * 255).astype(np.uint8)
+    # Remove padding region
+    if padding is not None:
+        pad_top, pad_left, content_h, content_w = padding
+        non_bg_cropped = non_bg[pad_top:pad_top + content_h, pad_left:pad_left + content_w]
+    else:
+        non_bg_cropped = non_bg
+    # Close small gaps
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    non_bg_closed = cv2.morphologyEx(non_bg_cropped, cv2.MORPH_CLOSE, kernel)
+    apt_contours, _ = cv2.findContours(non_bg_closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Estimate pixels_per_meter: assume longest apartment dimension ~ 15m
+    pixels_per_meter = max(orig_w, orig_h) / 15.0
+
     # Convert from normalized 0-COORD_RANGE to pixel coordinates
     # and flatten into target v2 format
     result = {
         "version": 2,
         "width": orig_w,
         "height": orig_h,
-        "pixels_per_meter": 0,
+        "pixels_per_meter": round(pixels_per_meter, 2),
         "_inference_time_ms": elapsed,
     }
 
@@ -98,8 +115,26 @@ def run_inference(model, image_bytes, device):
             pixel_polys.append(pixel_poly)
         result[class_name] = pixel_polys
 
+    # Compute apartments polygon from largest non-background contour
+    if apt_contours:
+        largest = max(apt_contours, key=cv2.contourArea)
+        approx = cv2.approxPolyDP(largest, 3.0, closed=True)
+        pts = approx.reshape(-1, 2)
+        # Scale from cropped mask space to pixel coordinates
+        crop_scale_x = orig_w / non_bg_cropped.shape[1]
+        crop_scale_y = orig_h / non_bg_cropped.shape[0]
+        apt_poly = [
+            [round(float(px) * crop_scale_x, 2), round(float(py) * crop_scale_y, 2)]
+            for px, py in pts
+        ]
+        if apt_poly and apt_poly[0] != apt_poly[-1]:
+            apt_poly.append(apt_poly[0])
+        result["apartments"] = apt_poly
+    else:
+        result["apartments"] = []
+
     # Add missing classes expected by the format
-    for key in ("apartments", "other_room", "kitchen_table",
+    for key in ("other_room", "kitchen_table",
                 "kitchen_zone", "sink", "cooker"):
         if key not in result:
             result[key] = []
