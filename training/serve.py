@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from PIL import Image
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from config import INPUT_SIZE, NUM_CLASSES
+from config import INPUT_SIZE, NUM_CLASSES, COORD_RANGE
 from vectorize import mask_to_polygons
 
 MODEL_PATH = "checkpoints/segformer-floorplan-v2/best"
@@ -75,12 +75,36 @@ def run_inference(model, image_bytes, device):
 
     elapsed = round((time.time() - t0) * 1000, 1)
 
-    return {
-        "version": 3,
-        "image_width_meters": 0,
+    # Convert from normalized 0-COORD_RANGE to pixel coordinates
+    # and flatten into target v2 format
+    result = {
+        "version": 2,
+        "width": orig_w,
+        "height": orig_h,
+        "pixels_per_meter": 0,
         "_inference_time_ms": elapsed,
-        "elements": polygons,
     }
+
+    scale_x = orig_w / COORD_RANGE
+    scale_y = orig_h / COORD_RANGE
+
+    for class_name, poly_list in polygons.items():
+        pixel_polys = []
+        for poly in poly_list:
+            pixel_poly = [
+                [round(pt[0] * scale_x, 2), round(pt[1] * scale_y, 2)]
+                for pt in poly
+            ]
+            pixel_polys.append(pixel_poly)
+        result[class_name] = pixel_polys
+
+    # Add missing classes expected by the format
+    for key in ("apartments", "other_room", "kitchen_table",
+                "kitchen_zone", "sink", "cooker"):
+        if key not in result:
+            result[key] = []
+
+    return result
 
 
 class Handler(BaseHTTPRequestHandler):

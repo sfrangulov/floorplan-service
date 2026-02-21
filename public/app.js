@@ -177,17 +177,32 @@ function fitSideBySide() {
   stage.batchDraw()
 }
 
-// --- Scale normalized (0-1000) coordinates to actual image pixels, offset to the right ---
+// --- Scale coordinates to canvas, offset to the right ---
+// Supports both pixel coords (v2: data.width/height present) and normalized 0-1000 (v3)
+let coordScaleX = 1
+let coordScaleY = 1
+
 function scalePoint(point) {
   const offsetX = actualImageWidth + GAP
   return [
-    point[0] * actualImageWidth / 1000 + offsetX,
-    point[1] * actualImageHeight / 1000,
+    point[0] * coordScaleX + offsetX,
+    point[1] * coordScaleY,
   ]
 }
 
 // --- Render polygons ---
 function renderPolygons(data) {
+  // Determine coordinate scaling: v2 has pixel coords, v3 has 0-1000 normalized
+  if (data.width && data.height) {
+    // v2 format: pixel coordinates → scale to actual display size
+    coordScaleX = actualImageWidth / data.width
+    coordScaleY = actualImageHeight / data.height
+  } else {
+    // v3 format: 0-1000 normalized
+    coordScaleX = actualImageWidth / 1000
+    coordScaleY = actualImageHeight / 1000
+  }
+
   // Clear previous
   polygonBgLayer.destroyChildren()
   for (const layer of Object.values(konvaLayers)) {
