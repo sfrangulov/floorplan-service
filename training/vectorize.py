@@ -90,9 +90,20 @@ def mask_to_polygons(mask: np.ndarray, original_size=None, padding=None) -> dict
 
     result = {name: [] for name in CLASS_KEY.values()}
 
+    # Linear elements (walls, doors, windows) need morphological splitting
+    # to break connected grids into individual segments
+    LINEAR_CLASSES = {"wall", "door", "window", "balcony_window"}
+
     for class_id, class_name in CLASS_KEY.items():
         # 1. Extract binary mask for this class
         binary = ((mask == class_id) * 255).astype(np.uint8)
+
+        # 1b. For walls, erode to break the connected grid at junctions,
+        # then dilate back to restore segment thickness
+        if class_name == "wall":
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            binary = cv2.erode(binary, kernel, iterations=2)
+            binary = cv2.dilate(binary, kernel, iterations=2)
 
         # 2. Find external contours
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

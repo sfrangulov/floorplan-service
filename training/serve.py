@@ -13,7 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from config import INPUT_SIZE, NUM_CLASSES
 from vectorize import mask_to_polygons
 
-MODEL_PATH = "checkpoints/segformer-floorplan/best"
+MODEL_PATH = "checkpoints/segformer-floorplan-v2/best"
 HOST = "0.0.0.0"
 PORT = 5555
 
