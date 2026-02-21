@@ -28,7 +28,16 @@ export async function buildApp(opts = {}) {
     return { status: 'ok', service: 'floorplan-service' }
   })
 
+  // Alias for demo-frontend compatibility (sends field name "floorplan")
+  app.post('/parse-floorplan', async (request, reply) => {
+    return handleAnalyze(request, reply)
+  })
+
   app.post('/analyze', async (request, reply) => {
+    return handleAnalyze(request, reply)
+  })
+
+  async function handleAnalyze(request, reply) {
     let file
     try {
       file = await request.file()
@@ -66,7 +75,7 @@ export async function buildApp(opts = {}) {
       request.log.error({ err }, 'Floor plan analysis failed')
       return reply.code(502).send({ error: 'Floor plan analysis failed' })
     }
-  })
+  }
 
   return app
 }
