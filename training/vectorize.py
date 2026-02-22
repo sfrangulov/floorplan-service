@@ -117,6 +117,14 @@ def mask_to_polygons(mask: np.ndarray, original_size=None, padding=None) -> dict
             if area < min_area:
                 continue
 
+            # 3b. Door/window shape validation: filter square-ish blobs
+            if class_name in ("door", "window"):
+                _, (bw, bh), _ = cv2.minAreaRect(contour)
+                if bw > 0 and bh > 0:
+                    aspect = max(bw, bh) / min(bw, bh)
+                    if aspect < 1.8 and area > 150:
+                        continue
+
             # 4. Simplify with Douglas-Peucker
             approx = cv2.approxPolyDP(contour, epsilon, closed=True)
 

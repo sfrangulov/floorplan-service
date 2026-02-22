@@ -19,6 +19,115 @@ from vectorize import mask_to_polygons
 MODEL_PATH = "checkpoints/segformer-floorplan-v3/best"
 HOST = "0.0.0.0"
 PORT = 5555
+USE_TTA = os.environ.get("USE_TTA", "0") == "1"
+
+# Class IDs
+BACKGROUND = 0
+WALL = 1
+DOOR = 2
+WINDOW = 3
+ROOM_CLASSES = [6, 7, 8, 9]  # bedroom, living_room, kitchen, bathroom
+
+# Thresholds for small region removal (in 512x512 mask space)
+SMALL_REGION_THRESHOLDS = {
+    "room": 500,
+    "wall": 30,
+    "door_window": 20,
+}
+
+
+def postprocess_mask(mask: np.ndarray) -> np.ndarray:
+    """Apply heuristics to clean up the segmentation mask.
+
+    Applied in order:
+    1. Morphological closing on room classes (fill holes)
+    2. Flood-fill enclosed background regions into nearest room
+    3. Small region removal
+    4. Wall refinement (merge close parallel segments)
+    5. Door/window shape validation (remove square blobs)
+    """
+    mask = mask.copy()
+
+    # --- 1. Morphological closing on room classes ---
+    kernel_room = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    for cls_id in ROOM_CLASSES:
+        room_binary = (mask == cls_id).astype(np.uint8) * 255
+        closed = cv2.morphologyEx(room_binary, cv2.MORPH_CLOSE, kernel_room)
+        # Fill only where the mask was background before
+        fill_mask = (closed > 0) & (mask == BACKGROUND)
+        mask[fill_mask] = cls_id
+
+    # --- 2. Flood-fill enclosed background regions ---
+    bg_binary = (mask == BACKGROUND).astype(np.uint8)
+    labeled, num_features = ndimage.label(bg_binary)
+    h, w = mask.shape
+    for comp_id in range(1, num_features + 1):
+        comp_mask = labeled == comp_id
+        # Check if this component touches the image border
+        touches_border = (
+            np.any(comp_mask[0, :])
+            or np.any(comp_mask[-1, :])
+            or np.any(comp_mask[:, 0])
+            or np.any(comp_mask[:, -1])
+        )
+        if touches_border:
+            continue
+        # Find neighboring room classes by dilating the component
+        dilated = cv2.dilate(
+            comp_mask.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=1
+        )
+        border_pixels = (dilated > 0) & ~comp_mask
+        neighbor_classes = mask[border_pixels]
+        # Only consider room classes as candidates
+        room_neighbors = neighbor_classes[np.isin(neighbor_classes, ROOM_CLASSES)]
+        if len(room_neighbors) > 0:
+            most_common = np.bincount(room_neighbors).argmax()
+            mask[comp_mask] = most_common
+
+    # --- 3. Small region removal ---
+    for cls_id in range(1, NUM_CLASSES):
+        cls_binary = (mask == cls_id).astype(np.uint8)
+        labeled_cls, num_cls = ndimage.label(cls_binary)
+        if cls_id in ROOM_CLASSES:
+            threshold = SMALL_REGION_THRESHOLDS["room"]
+        elif cls_id == WALL:
+            threshold = SMALL_REGION_THRESHOLDS["wall"]
+        else:
+            threshold = SMALL_REGION_THRESHOLDS["door_window"]
+        for comp_id in range(1, num_cls + 1):
+            comp_mask = labeled_cls == comp_id
+            if np.sum(comp_mask) < threshold:
+                mask[comp_mask] = BACKGROUND
+
+    # --- 4. Wall refinement ---
+    wall_binary = (mask == WALL).astype(np.uint8) * 255
+    kernel_wall = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    wall_closed = cv2.morphologyEx(wall_binary, cv2.MORPH_CLOSE, kernel_wall)
+    # Restore wall where gaps were closed, only over background
+    wall_fill = (wall_closed > 0) & (mask == BACKGROUND)
+    mask[wall_fill] = WALL
+
+    # --- 5. Door/window shape validation ---
+    for cls_id in [DOOR, WINDOW]:
+        cls_binary = (mask == cls_id).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(
+            cls_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < 50:
+                continue
+            _, (bw, bh), _ = cv2.minAreaRect(contour)
+            if bw == 0 or bh == 0:
+                continue
+            aspect = max(bw, bh) / min(bw, bh)
+            # Nearly square blobs with significant area are likely misclassified
+            if aspect < 2.0 and area > 200:
+                cv2.drawContours(
+                    mask, [contour], -1, int(BACKGROUND), thickness=cv2.FILLED
+                )
+
+    return mask
 
 
 def load_model(model_path, device):
@@ -71,7 +180,23 @@ def run_inference(model, image_bytes, device):
             mode="bilinear",
             align_corners=False,
         )
+
+        if USE_TTA:
+            # Test-Time Augmentation: average with horizontally flipped prediction
+            img_flipped = torch.flip(img_tensor, dims=[3])
+            outputs_flip = model(pixel_values=img_flipped)
+            logits_flip = F.interpolate(
+                outputs_flip.logits,
+                size=(INPUT_SIZE, INPUT_SIZE),
+                mode="bilinear",
+                align_corners=False,
+            )
+            # Flip back and average
+            logits_flip = torch.flip(logits_flip, dims=[3])
+            logits = (logits + logits_flip) / 2.0
+
         mask = logits.argmax(dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
+        mask = postprocess_mask(mask)
 
     padding = (pad_top, pad_left, new_h, new_w)
     polygons = mask_to_polygons(
