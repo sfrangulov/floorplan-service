@@ -91,7 +91,7 @@ def get_train_transform() -> A.Compose:
                 hue=0.05,
                 p=0.5,
             ),
-            A.GaussNoise(var_limit=(5, 25), p=0.3),
+            A.GaussNoise(std_range=(0.02, 0.1), p=0.3),
             A.ElasticTransform(alpha=20, sigma=5, p=0.2),
         ]
     )
