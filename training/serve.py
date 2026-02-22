@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import time
 
 import cv2
@@ -10,20 +11,23 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from scipy import ndimage
 
 from config import INPUT_SIZE, NUM_CLASSES, COORD_RANGE
 from vectorize import mask_to_polygons
 
-MODEL_PATH = "checkpoints/segformer-floorplan-v2/best"
+MODEL_PATH = "checkpoints/segformer-floorplan-v3/best"
 HOST = "0.0.0.0"
 PORT = 5555
 
 
 def load_model(model_path, device):
+    from pathlib import Path
     from transformers import SegformerForSemanticSegmentation
 
+    local_path = str(Path(model_path).resolve())
     model = SegformerForSemanticSegmentation.from_pretrained(
-        model_path, num_labels=NUM_CLASSES
+        local_path, num_labels=NUM_CLASSES
     )
     model.to(device)
     model.eval()
