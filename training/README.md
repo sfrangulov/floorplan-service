@@ -1,4 +1,52 @@
-# Floorplan Segmentation Training
+# Floorplan SegFormer
+
+Семантическая сегментация планировок квартир на основе SegFormer-B2.
+
+**Вход:** изображение планировки → **Выход:** JSON с полигонами комнат и их типами.
+
+## Как работает
+
+### Модель
+
+**SegFormer-B2** (`nvidia/segformer-b2-finetuned-ade-512-512`) — трансформер для семантической сегментации. Претрейн на ADE20K (150 классов), голова переинициализируется на 10 классов.
+
+### Классы
+
+| ID | Класс | Описание |
+|----|-------|----------|
+| 0 | background | Всё остальное |
+| 1 | wall | Стены |
+| 2 | door | Двери |
+| 3 | window | Окна |
+| 4 | balcony | Балкон |
+| 5 | balcony_window | Стеклянная перегородка |
+| 6 | bedroom | Спальня |
+| 7 | living_room | Гостиная |
+| 8 | kitchen | Кухня |
+| 9 | bathroom | Санузел |
+
+### Данные
+
+- **Синтетика** (2000 train / 500 val) — `generate_synthetic.py` генерирует планировки программно через `floorplan_generator.py`
+- **CubiCasa5K** (~4500 train / ~500 val) — реальные планировки с [Zenodo](https://zenodo.org/record/2613548), SVG-аннотации конвертируются в маски через `prepare_cubicasa.py`
+
+Все сэмплы приводятся к 512x512 с сохранением пропорций (белый padding).
+
+### Обучение (`train.py`)
+
+- Оптимизатор: AdamW + PolynomialLR scheduler
+- Loss: Combined (CrossEntropy + Tversky)
+- Аугментации: flip, rotate, color jitter, noise, elastic
+- Early stopping по mIoU на валидации
+- Сохраняет `best/` и `latest/` чекпоинты
+
+### Инференс (`predict.py`)
+
+1. Загрузка картинки → ресайз 512x512 с padding
+2. Прогон через модель → логиты 128x128 (1/4 разрешения)
+3. Upsample до 512x512 → argmax → маска классов
+4. Обратный маппинг на оригинальный размер (убираем padding)
+5. Векторизация маски в полигоны (`vectorize.py`) → JSON с координатами комнат
 
 ## Quick Start
 
@@ -11,91 +59,62 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 2. Generate synthetic data
+### 2. Генерация синтетических данных
 
 ```bash
 python generate_synthetic.py --count 2000 --output-dir data/prepared/synthetic/train
 python generate_synthetic.py --count 500 --output-dir data/prepared/synthetic/val --seed 999
 ```
 
-### 3. (Optional) Prepare CubiCasa5K
+### 3. Подготовка CubiCasa5K
 
 ```bash
-git clone https://github.com/CubiCasa/CubiCasa5k data/cubicasa5k
+wget -O cubicasa5k.zip https://zenodo.org/record/2613548/files/cubicasa5k.zip
+unzip -q cubicasa5k.zip -d data/
 python prepare_cubicasa.py --data-dir data/cubicasa5k --output-dir data/prepared/cubicasa
 ```
 
-### 4. Train
+### 4. Обучение
 
 ```bash
-# Synthetic only:
-python train.py \
-  --data-dirs data/prepared/synthetic/train \
-  --val-dirs data/prepared/synthetic/val \
-  --output-dir checkpoints/segformer-floorplan
-
-# Synthetic + CubiCasa5K:
 python train.py \
   --data-dirs data/prepared/cubicasa/train data/prepared/synthetic/train \
   --val-dirs data/prepared/cubicasa/val data/prepared/synthetic/val \
-  --output-dir checkpoints/segformer-floorplan
+  --output-dir checkpoints/segformer-floorplan-v3 \
+  --batch-size 8 \
+  --epochs 50
 ```
 
-### 5. Test locally
+### 5. Тестирование
 
 ```bash
 python predict.py \
-  --model checkpoints/segformer-floorplan/best \
+  --model checkpoints/segformer-floorplan-v3/best \
   --image ../test-data/U3laAgYJ.jpg \
   --output result.json \
   --save-mask
 ```
 
-### 6. Deploy to Replicate
+### 6. Обучение в Google Colab
 
-```bash
-# Copy best model to ./model/ for Cog
-cp -r checkpoints/segformer-floorplan/best model
+Загрузить `training-code-v3.zip` в Colab и запустить `train_colab.ipynb`.
 
-# Push to Replicate
-cog push r8.im/your-username/floorplan-segformer
-```
+Версия задаётся один раз в cell 1 через `VERSION = "v3"`.
 
-## Classes
+## Файлы
 
-| ID | Class | Description |
-|----|-------|-------------|
-| 0 | background | Everything else |
-| 1 | wall | Walls |
-| 2 | door | Doors |
-| 3 | window | Windows |
-| 4 | balcony | Balcony area |
-| 5 | balcony_window | Glass partition |
-| 6 | bedroom | Bedroom |
-| 7 | living_room | Living room |
-| 8 | kitchen | Kitchen |
-| 9 | bathroom | Bathroom/WC |
-
-## Architecture
-
-- **Model**: SegFormer-B2 (nvidia/segformer-b2-finetuned-ade-512-512)
-- **Input**: 512x512 (resize with aspect ratio preservation + padding)
-- **Loss**: Combined CrossEntropy + Tversky (alpha=0.3, beta=0.7)
-- **Output**: 10-class pixel mask -> vectorized polygons in 0-1000 coords
-
-## File Overview
-
-| File | Purpose |
-|------|---------|
-| `config.py` | Class definitions, hyperparameters, model config |
-| `prepare_cubicasa.py` | CubiCasa5K dataset preparation |
-| `floorplan_generator.py` | Procedural apartment layout generation |
-| `generate_synthetic.py` | Synthetic image + mask renderer |
-| `dataset.py` | PyTorch Dataset with augmentation |
-| `loss.py` | Tversky + Combined loss functions |
-| `train.py` | Training script with early stopping |
-| `vectorize.py` | Mask -> polygon vectorization |
-| `predict.py` | Full inference pipeline |
-| `cog.yaml` | Replicate deployment config |
+| Файл | Назначение |
+|------|-----------|
+| `config.py` | Классы, гиперпараметры, конфигурация модели |
+| `prepare_cubicasa.py` | Подготовка датасета CubiCasa5K (SVG → маски) |
+| `floorplan_generator.py` | Процедурная генерация планировок |
+| `generate_synthetic.py` | Рендер синтетических изображений + масок |
+| `dataset.py` | PyTorch Dataset с аугментациями |
+| `loss.py` | Tversky + Combined loss |
+| `train.py` | Обучение с early stopping |
+| `vectorize.py` | Маска → полигоны |
+| `predict.py` | Полный пайплайн инференса |
+| `serve.py` | HTTP-сервер для инференса |
 | `cog_predict.py` | Replicate predictor |
-| `test_vectorize.py` | Vectorization unit tests |
+| `train_colab.ipynb` | Ноутбук для обучения в Colab |
+| `test_vectorize.py` | Тесты векторизации |
