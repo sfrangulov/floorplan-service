@@ -117,19 +117,46 @@ def mask_to_polygons(mask: np.ndarray, original_size=None, padding=None) -> dict
             if area < min_area:
                 continue
 
-            # 3b. Door/window shape validation: filter square-ish blobs
-            if class_name in ("door", "window"):
+            # 3b. Window shape validation: filter square-ish blobs
+            if class_name == "window":
                 _, (bw, bh), _ = cv2.minAreaRect(contour)
                 if bw > 0 and bh > 0:
                     aspect = max(bw, bh) / min(bw, bh)
                     if aspect < 1.8 and area > 150:
                         continue
 
-            # 4. Simplify with Douglas-Peucker
-            approx = cv2.approxPolyDP(contour, epsilon, closed=True)
+            # 3c. Doors: convert blob to thin "closed door" rectangle
+            #     Orient along adjacent wall using PCA on nearby wall pixels
+            if class_name == "door":
+                rect_center, rect_size, _ = cv2.minAreaRect(contour)
+                door_length = max(rect_size)
+                door_thickness = 5.0
 
-            # Convert from OpenCV shape (N, 1, 2) to list of [x, y]
-            points = approx.reshape(-1, 2)
+                # Find wall pixels adjacent to this door
+                door_only = np.zeros_like(binary)
+                cv2.drawContours(door_only, [contour], -1, 255, thickness=cv2.FILLED)
+                adj_kernel = np.ones((9, 9), np.uint8)
+                dilated = cv2.dilate(door_only, adj_kernel)
+                wall_nearby = ((mask == 1) * 255).astype(np.uint8)
+                adjacent_wall = dilated & wall_nearby
+                ys, xs = np.where(adjacent_wall > 0)
+
+                if len(xs) >= 3:
+                    # Determine wall direction: horizontal or vertical
+                    x_spread = float(np.ptp(xs))
+                    y_spread = float(np.ptp(ys))
+                    wall_angle = 0.0 if x_spread >= y_spread else 90.0
+                else:
+                    # Fallback: use bounding rect aspect
+                    _, _, bw, bh = cv2.boundingRect(contour)
+                    wall_angle = 0.0 if bw >= bh else 90.0
+
+                thin_rect = (rect_center, (door_length, door_thickness), wall_angle)
+                points = cv2.boxPoints(thin_rect).astype(np.float32)
+            else:
+                # 4. Simplify with Douglas-Peucker
+                approx = cv2.approxPolyDP(contour, epsilon, closed=True)
+                points = approx.reshape(-1, 2)
 
             # 5. Transform coordinates
             #    a) Remove padding offset

@@ -107,25 +107,24 @@ def postprocess_mask(mask: np.ndarray) -> np.ndarray:
     wall_fill = (wall_closed > 0) & (mask == BACKGROUND)
     mask[wall_fill] = WALL
 
-    # --- 5. Door/window shape validation ---
-    for cls_id in [DOOR, WINDOW]:
-        cls_binary = (mask == cls_id).astype(np.uint8) * 255
-        contours, _ = cv2.findContours(
-            cls_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area < 50:
-                continue
-            _, (bw, bh), _ = cv2.minAreaRect(contour)
-            if bw == 0 or bh == 0:
-                continue
-            aspect = max(bw, bh) / min(bw, bh)
-            # Nearly square blobs with significant area are likely misclassified
-            if aspect < 2.0 and area > 200:
-                cv2.drawContours(
-                    mask, [contour], -1, int(BACKGROUND), thickness=cv2.FILLED
-                )
+    # --- 5. Window shape validation (doors handled as minAreaRect in vectorize) ---
+    cls_binary = (mask == WINDOW).astype(np.uint8) * 255
+    contours, _ = cv2.findContours(
+        cls_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < 50:
+            continue
+        _, (bw, bh), _ = cv2.minAreaRect(contour)
+        if bw == 0 or bh == 0:
+            continue
+        aspect = max(bw, bh) / min(bw, bh)
+        # Nearly square blobs with significant area are likely misclassified
+        if aspect < 2.0 and area > 200:
+            cv2.drawContours(
+                mask, [contour], -1, int(BACKGROUND), thickness=cv2.FILLED
+            )
 
     return mask
 
