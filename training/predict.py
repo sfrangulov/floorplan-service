@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -150,8 +151,11 @@ def load_model(model_path: str, device: torch.device):
     Returns:
         The loaded model in eval mode.
     """
+    # Resolve to absolute path so from_pretrained treats it as a local dir,
+    # not a HuggingFace repo ID.
+    local_path = str(Path(model_path).resolve())
     model = SegformerForSemanticSegmentation.from_pretrained(
-        model_path,
+        local_path,
         num_labels=NUM_CLASSES,
     )
     model.to(device)
