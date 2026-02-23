@@ -100,9 +100,13 @@ def postprocess_mask(mask: np.ndarray) -> np.ndarray:
                 mask[comp_mask] = BACKGROUND
 
     # --- 4. Wall refinement ---
+    # Close gaps at wall junctions and thin spots
     wall_binary = (mask == WALL).astype(np.uint8) * 255
-    kernel_wall = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    kernel_wall = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
     wall_closed = cv2.morphologyEx(wall_binary, cv2.MORPH_CLOSE, kernel_wall)
+    # Also dilate slightly to thicken walls at thin junctions
+    kernel_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    wall_closed = cv2.dilate(wall_closed, kernel_dilate, iterations=1)
     # Restore wall where gaps were closed, only over background
     wall_fill = (wall_closed > 0) & (mask == BACKGROUND)
     mask[wall_fill] = WALL
